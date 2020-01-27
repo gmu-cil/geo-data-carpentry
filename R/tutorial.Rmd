@@ -73,6 +73,7 @@ for(i in 1:nrow(gov_cluster)) {
   tryCatch({
       intersection = raster::intersect(x = points, y = gov_cluster[i,])
     }, error = function(e) {
+      # add 0 for ids with no intersection
     })
   
   
