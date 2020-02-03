@@ -1,7 +1,7 @@
 ---
-title: "Car2Go Diverse Layers"
+title: "Geospatial aggregation tutorial"
 author: "Myeong Lee"
-date: "5/17/2017"
+date: "1/27/2020"
 output: html_document
 ---
 This code is for processing and visualizing diverse geospatial polygons and aggregating from one layer to another when polygons are different. 
@@ -19,7 +19,7 @@ library(raster)
 library(classInt)
 library(data.table)
 
-register_google(key="AIzaSyD36Jq79omYvK4q160enCpKcdzeuhlCu7U")
+register_google(key="put_your_Google_Maps_API_key_here")
 ```
 
 
