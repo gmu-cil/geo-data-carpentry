@@ -7,7 +7,8 @@ Geospatial data aggregation: cases &amp; examples
 ### 0. Getting Ready
 * This tutorial is based on [R](https://www.r-project.org/).
 * Sample data is available in the `data` folder (a sample of Car2Go's location data)
-* Sample code is availalbe at the `tutorial.Rmd` file.
+* Sample code is availalbe at the `.Rmd` files.
+* Currently, there are two sample files available (`geo_agg_tutorial.Rmd` for geospatial visualization and aggregation; and `voronoi_overlay_sample.Rmd` for generating Voronoi diagram based on real-world points).
 	 
 ### 1. Geospatial Points 
 * Loading the data as a dataframe (if lon/lat).
