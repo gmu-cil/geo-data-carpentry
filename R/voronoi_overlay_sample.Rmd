@@ -1,0 +1,110 @@
+---
+title: "Voronoi diagram overlay"
+author: "Myeong Lee"
+date: "3/1/2020"
+output: html_document
+---
+This sample code is for generating voronoi diagram over other data points. 
+The sample data is Car2Go locations (FYI, Car2Go is a shared car service where people can drop the cars anywhere in a city.)
+
+```{r}
+library(ggmap)
+library(ggplot2)
+library(stringr)
+library(readr)
+library(dplyr)
+library(sp)
+library(rgeos)
+library(rgdal)
+library(raster)
+library(classInt)
+library(data.table)
+library(deldir)
+
+register_google(key="put_your_Google_Maps_API_key_here")
+```
+
+
+# Generating Voronoi diagram over the Car2Go data
+```{r}
+setwd("~/git/geo-aggregation-carpentry/data/")
+
+# Loading the data
+total <- read_delim("car2go_samples.csv", delim = ",",col_names = T )
+total$ID <- row.names(total)
+total$ID <- as.integer(total$ID)
+
+# Just as an example, K-means was used to find centroids of Car2Go locations (when 50 clusters exist)
+# The base points to draw Voronoi diagram can be generated in different ways.
+ks <- kmeans(na.omit(total[, c("lon","lat")]), 50) # K=50 is just arbitrary
+cls <- data.frame(ks$cluster)
+row.names(cls) <- total$ID
+cls$cid <- row.names(cls)
+cls$cid <- as.integer(cls$cid)
+total <- total %>% left_join(cls, by=c("ID" = "cid"))
+total <- total[complete.cases(total),]
+total$ks.cluster <- as.factor(total$ks.cluster)
+centroids <- as.data.frame(ks$centers)
+
+# DC Base Map
+dc_boundary <- readOGR("../data/DC_Boundary/DC_Boundary.shp", layer="DC_Boundary") %>%
+  spTransform(CRS("+proj=longlat +datum=WGS84"))
+
+# The polygon that provides the boundary of the Voronoi diagram.
+cell_diameter <- 0.1
+poly <-  as(extent(dc_boundary) + cell_diameter, "SpatialPolygons")
+
+# function to draw voronoi diagram
+voronoipolygons <- function(x, poly) {
+  if (.hasSlot(x, 'coords')) {
+    crds <- x@coords  
+  } else crds <- x
+  bb = bbox(poly)
+  rw = as.numeric(t(bbox(poly)))
+  z <- deldir(crds[,1], crds[,2])
+  w <- tile.list(z)
+  polys <- vector(mode='list', length=length(w))
+  require(sp)
+  for (i in seq(along=polys)) {
+    pcrds <- cbind(w[[i]]$x, w[[i]]$y)
+    pcrds <- rbind(pcrds, pcrds[1,])
+    polys[[i]] <- Polygons(list(Polygon(pcrds)), ID=as.character(i))
+  }
+  SP <- SpatialPolygons(polys)
+
+  SpatialPolygonsDataFrame(
+    SP, data.frame(x=crds[,1], y=crds[,2], row.names=sapply(slot(SP, 'polygons'), 
+                                    function(x) slot(x, 'ID'))))  
+}
+
+
+v <- voronoipolygons(centroids, poly)
+proj4string(v) <- proj4string(dc_boundary)
+
+# If you want to focus only on the DC boundary, need to run the below line.
+# v <- raster::intersect(v, dc_boundary) 
+
+# Create points as SpatialPointsDataFrame
+raw_points <- total[,c("lon", "lat")]
+raw_points <- unique(raw_points)
+raw_points <- SpatialPointsDataFrame(coords = raw_points, data = raw_points,
+                               proj4string = CRS("+proj=longlat +datum=WGS84 +ellps=WGS84 +towgs84=0,0,0"))
+
+
+# One way to plot the maps (commented out cause it's same to the one using the ggmap)
+# plot(v)
+# points(raw_points, pch=20, col="red", cex=0.1)
+# points(centroids,pch=20, col="blue", cex=0.5)
+
+# Another way to plot the map using GGMap.
+hex_transform <- fortify(v)
+map <- get_map(location = 'Washinton DC', zoom = 11, color = "bw")
+mapPoints <- ggmap(map) + 
+  geom_polygon(aes(x=long, y=lat, group=group), data = hex_transform, color='red', alpha=0) +
+  geom_point(data=total, aes(x=lon, y=lat), size=0.5, colour="blue") +
+  geom_point(data=centroids, aes(x=lon, y=lat), size=0.8, colour="orange", shape=8) +
+  ggtitle("Voronoi overlay over Car2Go locations. Orange dots are the centorids of clusters")
+mapPoints
+
+
+```
